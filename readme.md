@@ -1,5 +1,6 @@
 # U-Codec: Ultra Low Frame-rate Neural Speech Codec for Fast High-fidelity Speech Generation
 
+[![arXiv](https://img.shields.io/badge/arXiv-2505.16718-brightgreen.svg?style=flat-square)](https://www.arxiv.org/abs/2510.16718)
 [![githubio](https://img.shields.io/badge/GitHub.io-Demo_Page-blue?logo=Github&style=flat-square)](https://yangxusheng-yxs.github.io/U-Codec/)
 [![GitHub](https://img.shields.io/badge/Github-Code_Release-pink?logo=Github&style=flat-square)](https://github.com/YangXusheng-yxs/CodecFormer_5Hz)
 [![HuggingFace](https://img.shields.io/badge/HugginigFace-Stable_Release-blue?style=flat-square)](https://huggingface.co/shaunxsyang/U-Codec)
@@ -28,6 +29,22 @@ The overview of U-Codec as following picture shows.
 
 ## How to inference U-Codec
 We provide an example to demonstrate how to run U-Codec (5Hz) for audio tokenization and reconstruction.
+```
+CodecFormer_5Hz/
+├── tools/
+│   └── tokenizer/
+│       └── soundstream/
+│           ├── AudioTokenizer_HY.py        # document
+│           ├── models/
+│           │   └── hy_tokenize.py          # including TokenizerGANWrapper
+│           ├── abs_tokenizer.py
+│           └── common.py
+│       └── hytokenize/
+            └── modules
+            └── quantization
+```
+
+
 ### Environment Setup
 First, create a Python environment following a similar setup to [project page](https://github.com/yangdongchao/UniAudio).
 ```
@@ -46,6 +63,71 @@ If you need pretrained weights, please download them on the [Checkpoint](https:/
 
 We provide an example script AudioTokenizer_UCodec.py for tokenizing audio into discrete codes and reconstructing audio from the codes.
 
+#### Part 1: reconstruct speech from orignial speech
+```
+import torch
+import torchaudio
+from tools.tokenizer.soundstream.AudioTokenizer_HY import HY_Tokenizer
+
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+
+# initial Tokenizer
+tokenizer = HY_Tokenizer(device=device)
+
+# input path
+wav_path = ".LibriSpeech/test-clean/8230/279154/8230-279154-0026.wav"
+
+# encode + decode
+codes = tokenizer.tokenize(wav_path)
+print(f"Token shape: {codes.shape}")  # e.g., (n_q * frames,)
+
+wav_recon = tokenizer.detokenize(codes)
+print(f"Reconstructed wav: {wav_recon.shape}")
+
+# save 
+torchaudio.save("reconstructed.wav", wav_recon.unsqueeze(0), sample_rate=16000)
+print("Saved reconstructed.wav")
+
+
+```
+#### Part 2: Generate discrete codes
+```
+import torch
+from tools.tokenizer.soundstream.AudioTokenizer_HY import HY_Tokenizer
+
+tokenizer = HY_Tokenizer(device=torch.device('cuda:0'))
+
+audio_path = ".LibriSpeech/test-clean/8230/279154/8230-279154-0026.wav"
+
+discrete_code = tokenizer.tokenize(audio_path)
+print(f"Discrete token shape: {discrete_code.shape}")
+print(discrete_code[:128])  # 打印前128个token
+
+```
+
+
+#### Part 3: Reconstruction using codes
+
+```
+import torch
+from tools.tokenizer.soundstream.AudioTokenizer_HY import HY_Tokenizer
+import torchaudio
+
+tokenizer = HY_Tokenizer(device=torch.device('cuda:0'))
+
+# 假设已经有 discrete_code
+code = torch.load("example_code.pt")  # 或直接使用上面生成的 discrete_code
+
+wav_recon = tokenizer.detokenize(code)
+print(f"Decoded wav shape: {wav_recon.shape}")
+
+torchaudio.save("decode_from_code.wav", wav_recon.unsqueeze(0), sample_rate=16000)
+print("Saved decode_from_code.wav")
+
+```
+
+
+#### Part 4: Directly inference
 ```
 cd tools/tokenizer/soundstream
 python AudioTokenizer_HY.py
